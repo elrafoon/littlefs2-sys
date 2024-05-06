@@ -3,14 +3,29 @@ use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut builder = cc::Build::new();
+
+    println!("cargo:rerun-if-env-changed=TARGET");
+    println!("cargo:rerun-if-env-changed=LFS_DIR");
+    println!("cargo:rerun-if-env-changed=LFS_CONFIG");
+
     let target = env::var("TARGET")?;
+    let lfs_dir: PathBuf = env::var("LFS_DIR").unwrap_or("littlefs".into()).into();
+    let lfs_config = env::var("LFS_CONFIG").ok();
+
+    let builder = builder.flag("-std=c11");
+
+    let builder = if let Some(lfs_config) = lfs_config {
+        builder.flag(format!("-DLFS_CONFIG={lfs_config}").as_str())
+    } else {
+        builder
+            .flag("-DLFS_NO_DEBUG")
+            .flag("-DLFS_NO_WARN")
+            .flag("-DLFS_NO_ERROR")
+    };
+
     let builder = builder
-        .flag("-std=c11")
-        .flag("-DLFS_NO_DEBUG")
-        .flag("-DLFS_NO_WARN")
-        .flag("-DLFS_NO_ERROR")
-        .file("littlefs/lfs.c")
-        .file("littlefs/lfs_util.c")
+        .file(lfs_dir.join("lfs.c"))
+        .file(lfs_dir.join("lfs_util.c"))
         .file("string.c");
 
     #[cfg(feature = "software-intrinsics")]
